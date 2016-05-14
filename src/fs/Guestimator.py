@@ -39,8 +39,7 @@ class Guestimator(threading.Thread):
                     self.total_count += 1
 
 
-
-    def completed(self):
+    def finished(self):
         return self.complete
 
     def get_total(self):

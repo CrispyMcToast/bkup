@@ -7,11 +7,13 @@ REMOVE_CMD = "RM_CMD"
 
 class OperationWorker(threading.Thread):
     
-    def __init__(self, todoq, resultsq):
+    def __init__(self, todoq, resultsq, trash):
         threading.Thread.__init__(self)
 
         self.todoq = todoq
         self.resultsq = resultsq
+
+        self.trash = trash
 
 
     def run(self):
@@ -27,46 +29,41 @@ class OperationWorker(threading.Thread):
             if os.path.isdir(src):
                 directory = True
 
-            if afile:
-                if command == COPY_CMD:
+            if command = COPY_CMD:
+                if afile:
                     self.copy_file(src, dst, operation)
-                elif self.command == RM_CMD:
-                    self.delete_file(src, dst, operation)
-                else:
-                    print("TODO: Error")
-            elif directory:
-                if command == COPY_CMD:
+                elif directory:
                     self.make_directory(src, dst, operation)
-                elif command == RM_CMD:
-                    self.delete_directory(src, dst, operation)
                 else:
                     print("TODO: Error")
+            elif command == REMOVE_CMD:
+                    self.delete(src, dst, operation)
             else:
                 print("TODO: Error")
 
     def copy_file(self, src, dst, operation):
         if os.path.isfile(src):
             print("Copy File src %s dst %s" % (src, dst))
-            #sheutil.copy(src,dst)
+            sheutil.copy(src,dst)
             self.resultsq.put(operation, True)
 
 
     def make_directory(self, src, dst, operation):
         if os.path.isdir(src):
             print("Create Dir src %s dst %s" % (src, dst))
-            #os.mkdir(dst)
+            os.mkdir(dst)
             self.resultsq.put(operation, True)
         
 
-    def delete_directory(self, src, dst, operation):
+    def delete(self, src, dst, operation):
         if os.path.isdir(src):
-            print("Delete Dir src %s dst %s" % (src, dst))
-            #os.remove(dst)
+            print("Deleting src %s dst %s" % (src, dst))
+            shutil.move(src, dst)
             self.resultsq.put(operation, True)
 
-    def delete_file(self, src, dst, operation):
-        if os.path.isfile(src):
-            print("Delete File src %s dst %s" % (src, dst))
-            #os.remove(dst)
-            self.resultsq.put(operation, True)
+#    def delete_file(self, src, dst, operation):
+#        if os.path.isfile(src):
+#            print("Delete File src %s dst %s" % (src, dst))
+#            shutil.move(src, dst)
+#            self.resultsq.put(operation, True)
         

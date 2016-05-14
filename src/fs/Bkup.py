@@ -6,6 +6,7 @@ import hashlib
 import time
 import threading
 import queue
+import ast
 
 import Guestimator
 import Scanner
@@ -22,6 +23,7 @@ class BkupException(Exception):
 
 class Bkup(threading.Thread):
     BKUP_FILE=".bkup_config"
+    TRASH_FOLDER="TRASH"
     MAX_THREADS=5
 
     base_path = ""
@@ -39,8 +41,8 @@ class Bkup(threading.Thread):
             self.base_path = base_path
             bkup_map_loc = base_path + "/" + self.BKUP_FILE
             if os.path.exists(bkup_map_loc):
-                f = open(bkup_map_loc, "r").read()
-                self.bkup_map = eval(f)
+                f = open(bkup_map_loc, "r")
+                self.bkup_map = ast.literal_eval(f.read())
                 f.close()
         else:
             raise BkupException("Bad base path")
@@ -49,6 +51,8 @@ class Bkup(threading.Thread):
 
         self.guestimator = Guestimator.Guestimator(base_path)
         self.scanner = Scanner.Scanner(base_path)
+
+        self.trash_location = base_path + "/" + self.TRASH_FOLDER
 
         
     #does not guarantee consistency of maps - make copies
@@ -62,9 +66,11 @@ class Bkup(threading.Thread):
             elif omap[key] != value:
                 update.append((key, OperationWorker.COPY_CMD))
                 omap.pop(key)
+            elif omap[key] == value:
+                omap.pop(key)
 
         for key,value in omap.items():
-            update.append((key,OperationWorker.RM_CMD)) 
+            update.append((key,OperationWorker.REMOVE_CMD)) 
 
         return update
 
@@ -98,11 +104,14 @@ class Bkup(threading.Thread):
             int(self.guestimator.get_total()))
 
         new_map = Scanner.get_hash()
+        config_file = "/" + self.BKUP_FILE
+        if config_file in new_map:
+            new_map.pop(config_file)
 
-        new_map = new_map.copy()
-        old_map = self.bkup_map.copy()
+        new_map_copy = new_map.copy()
+        old_map_copy = self.bkup_map.copy()
 
-        updates = self.delta_check(old_map, new_map)
+        updates = self.delta_check(old_map_copy, new_map_copy)
         
         print("Total files for update: %d" % len(updates))
 
@@ -122,7 +131,13 @@ class Bkup(threading.Thread):
             path, command = update
 
             src = self.base_path + path
-            dst = self.dst_dir + path
+            dst = ""
+            if command == OperationWorker.COPY_CMD:
+                dst = self.dst_dir + path
+            elif command = OperationWorker.REMOVE_CMD:
+                dst = self.TRASH_LOCATION
+            else:
+                print("TODO: Error")
 
             todoq.put((src, dst, command))
 
@@ -133,6 +148,12 @@ class Bkup(threading.Thread):
             time.sleep(1)
     
         self.print_status("Updating", resultsq.qsize(), len(updates))
+
+        bkup_map_loc = self.base_path + "/" + self.BKUP_FILE
+        f = open(bkup_map_loc, "w")
+        f.write(str(new_map))
+        f.close()
+
 
         print("Completed")
 

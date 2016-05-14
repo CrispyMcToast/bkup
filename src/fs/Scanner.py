@@ -3,6 +3,7 @@
 import threading
 import os
 import hashlib
+import time
 
 MAX_THREADS = 5
 thread_count = 0
@@ -55,6 +56,9 @@ class Scanner(threading.Thread):
         self.thread_lock = threading.Lock()
         self.appendable = appendable
         self.exit = False
+        self.master = master
+
+        self.complete = False
 
     def run(self):
         self.runnable.set()
@@ -63,6 +67,24 @@ class Scanner(threading.Thread):
         self.scan()
 
         dec_count()
+
+        while self.master and get_count() != 0:
+            time.sleep(1)
+
+        self.complete = True
+
+
+    def finished(self):
+        c = self.complete
+        self.thread_lock.acquire()
+        for s in self.subthreads:
+            c = c & s.finished()
+            print(s.finished())
+        self.thread_lock.release()
+        return c
+
+    def get_total(self):
+        return self.total_processed
             
 
     def scan(self):
